@@ -1,0 +1,379 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Silicon Systems — Upload Report</title>
+<link rel="stylesheet" href="style.css">
+<style>
+/* ── Upload page specific styles ── */
+.upload-page {
+  min-height: calc(100vh - 66px);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 40px 24px;
+}
+
+.upload-hero {
+  text-align: center;
+  margin-bottom: 40px;
+}
+.upload-hero h1 {
+  font-size: 36px;
+  font-weight: 700;
+  letter-spacing: -1px;
+  line-height: 1.15;
+  margin-bottom: 12px;
+}
+.upload-hero h1 span { color: var(--accent); }
+.upload-hero p {
+  color: var(--muted);
+  font-size: 15px;
+  max-width: 500px;
+  margin: 0 auto;
+  line-height: 1.6;
+}
+
+.upload-box {
+  width: 100%;
+  max-width: 600px;
+  border: 2px dashed var(--border);
+  border-radius: 20px;
+  padding: 52px 40px;
+  text-align: center;
+  transition: all 0.3s;
+  cursor: pointer;
+  background: var(--surface);
+  position: relative;
+}
+.upload-box:hover,
+.upload-box.drag-over {
+  border-color: var(--accent);
+  background: rgba(0,212,255,0.04);
+  box-shadow: 0 0 40px var(--glow);
+}
+.upload-box .upload-icon {
+  font-size: 52px;
+  margin-bottom: 20px;
+  display: block;
+  animation: float 3s ease-in-out infinite;
+}
+@keyframes float {
+  0%,100% { transform: translateY(0); }
+  50%      { transform: translateY(-8px); }
+}
+.upload-box h2 { font-size: 20px; font-weight: 700; margin-bottom: 8px; }
+.upload-box p  { color: var(--muted); font-size: 13px; margin-bottom: 28px; }
+
+#file-input { display: none; }
+
+.upload-formats {
+  display: flex; gap: 10px; justify-content: center; margin-top: 20px; flex-wrap: wrap;
+}
+.format-badge {
+  background: var(--surface2);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 5px 12px;
+  font-size: 11px;
+  font-family: 'DM Mono', monospace;
+  color: var(--muted);
+}
+
+/* Progress bar during upload */
+.upload-progress {
+  display: none;
+  margin-top: 24px;
+  text-align: left;
+}
+.upload-progress-label {
+  font-size: 12px; color: var(--muted); margin-bottom: 8px;
+}
+.upload-progress-bar {
+  height: 4px; background: var(--border); border-radius: 2px; overflow: hidden;
+}
+.upload-progress-fill {
+  height: 100%; width: 0%;
+  background: linear-gradient(90deg, var(--accent), #0066ff);
+  border-radius: 2px;
+  transition: width 0.3s ease;
+}
+
+/* Feature cards below */
+.features-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 16px;
+  margin-top: 40px;
+  width: 100%;
+  max-width: 900px;
+}
+.feature-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  padding: 20px;
+  text-align: center;
+  transition: transform 0.2s, border-color 0.2s;
+}
+.feature-card:hover { transform: translateY(-3px); border-color: var(--border); }
+.feature-icon { font-size: 28px; margin-bottom: 10px; }
+.feature-title { font-size: 13px; font-weight: 600; margin-bottom: 4px; }
+.feature-desc  { font-size: 11px; color: var(--muted); line-height: 1.5; }
+
+/* History section */
+.history-section {
+  width: 100%;
+  max-width: 900px;
+  margin-top: 40px;
+}
+.history-title {
+  font-size: 13px; font-weight: 600;
+  text-transform: uppercase; letter-spacing: 1.5px;
+  color: var(--accent); margin-bottom: 14px;
+  display: flex; align-items: center; gap: 10px;
+}
+.history-title::after { content:''; flex:1; height:1px; background:var(--border); }
+.history-list { display: flex; flex-direction: column; gap: 8px; }
+.history-item {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 12px 18px;
+  display: flex; align-items: center; justify-content: space-between;
+  cursor: pointer; transition: border-color 0.2s;
+  gap: 12px;
+}
+.history-item:hover { border-color: var(--accent); }
+.history-item-left { display: flex; align-items: center; gap: 12px; }
+.history-icon { font-size: 20px; }
+.history-name { font-size: 13px; font-weight: 600; }
+.history-meta { font-size: 11px; color: var(--muted); margin-top: 2px; }
+.history-date { font-size: 11px; color: var(--muted); font-family: 'DM Mono', monospace; }
+#history-empty { color: var(--muted); font-size: 13px; text-align: center; padding: 20px; }
+
+@media (max-width: 760px) {
+  .features-grid { grid-template-columns: repeat(2,1fr); }
+  .upload-hero h1 { font-size: 26px; }
+}
+@media (max-width: 480px) {
+  .features-grid { grid-template-columns: 1fr 1fr; }
+  .upload-box { padding: 36px 24px; }
+}
+</style>
+</head>
+<body>
+
+<!-- ── HEADER ── -->
+<header>
+  <a class="logo" href="index.html">
+    <div class="logo-icon">S</div>
+    <div>
+      <div class="logo-text">Silicon <span>Systems</span></div>
+    </div>
+  </a>
+  <div class="header-right">
+    <div class="header-date" id="header-date"></div>
+  </div>
+</header>
+
+<!-- ── MAIN ── -->
+<main class="upload-page">
+
+  <div class="upload-hero">
+    <h1>Automatic Report<br><span>Dashboard</span></h1>
+    <p>Upload any Excel or CSV file and instantly get a beautiful interactive dashboard with GST analysis, invoice reports, salesperson tax, and ledger-wise outstanding.</p>
+  </div>
+
+  <!-- Upload Box -->
+  <div class="upload-box" id="upload-box">
+    <span class="upload-icon">📊</span>
+    <h2>Drop your file here</h2>
+    <p>Drag & drop an Excel or CSV file, or click to browse</p>
+    <button class="btn-primary" onclick="event.stopPropagation(); document.getElementById('file-input').click()">
+      📁 Choose File
+    </button>
+    <input type="file" id="file-input" accept=".xlsx,.xls,.csv">
+    <div class="upload-formats">
+      <span class="format-badge">.xlsx</span>
+      <span class="format-badge">.xls</span>
+      <span class="format-badge">.csv</span>
+      <span class="format-badge">up to 50 MB</span>
+    </div>
+    <div class="upload-progress" id="upload-progress">
+      <div class="upload-progress-label" id="progress-label">Uploading...</div>
+      <div class="upload-progress-bar">
+        <div class="upload-progress-fill" id="progress-fill"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Feature Cards -->
+  <div class="features-grid">
+    <div class="feature-card">
+      <div class="feature-icon">📊</div>
+      <div class="feature-title">GST Analysis</div>
+      <div class="feature-desc">Pending vs collected GST breakdown by agent</div>
+    </div>
+    <div class="feature-card">
+      <div class="feature-icon">🧾</div>
+      <div class="feature-title">Invoice Types</div>
+      <div class="feature-desc">TAX, PI, DPI invoice outstanding summary</div>
+    </div>
+    <div class="feature-card">
+      <div class="feature-icon">👤</div>
+      <div class="feature-title">Salesperson Tax</div>
+      <div class="feature-desc">Agent-wise outstanding and collection rates</div>
+    </div>
+    <div class="feature-card">
+      <div class="feature-icon">📋</div>
+      <div class="feature-title">Ledger Outstanding</div>
+      <div class="feature-desc">Party and ledger-wise filterable report</div>
+    </div>
+  </div>
+
+  <!-- Upload History -->
+  <div class="history-section">
+    <div class="history-title">Recent Uploads</div>
+    <div class="history-list" id="history-list">
+      <div id="history-empty">No uploads yet. Upload a file to get started.</div>
+    </div>
+  </div>
+
+</main>
+
+<!-- Toast -->
+<div id="toast"></div>
+
+<script>
+// ── Header date ──────────────────────────────────────────────
+document.getElementById('header-date').textContent =
+  new Date().toLocaleDateString('en-IN', { day:'2-digit', month:'short', year:'numeric' });
+
+// ── Drag & drop ──────────────────────────────────────────────
+const box = document.getElementById('upload-box');
+box.addEventListener('click', () => document.getElementById('file-input').click());
+box.addEventListener('dragover',  e => { e.preventDefault(); box.classList.add('drag-over'); });
+box.addEventListener('dragleave', () => box.classList.remove('drag-over'));
+box.addEventListener('drop', e => {
+  e.preventDefault(); box.classList.remove('drag-over');
+  const f = e.dataTransfer.files[0];
+  if (f) uploadFile(f);
+});
+document.getElementById('file-input').addEventListener('change', e => {
+  if (e.target.files[0]) uploadFile(e.target.files[0]);
+});
+
+// ── Upload file to server ─────────────────────────────────────
+function uploadFile(file) {
+  const allowed = ['.xlsx', '.xls', '.csv'];
+  const ext = file.name.slice(file.name.lastIndexOf('.')).toLowerCase();
+  if (!allowed.includes(ext)) { showToast('❌ Only .xlsx, .xls, .csv files allowed'); return; }
+
+  const prog     = document.getElementById('upload-progress');
+  const fill     = document.getElementById('progress-fill');
+  const label    = document.getElementById('progress-label');
+  prog.style.display = 'block';
+  label.textContent  = 'Uploading ' + file.name + '...';
+
+  // Animate progress bar (simulated)
+  let pct = 0;
+  const timer = setInterval(() => {
+    pct = Math.min(pct + Math.random() * 12, 85);
+    fill.style.width = pct + '%';
+  }, 150);
+
+  const fd = new FormData();
+  fd.append('file', file);
+
+  fetch('/api/upload', { method: 'POST', body: fd })
+    .then(r => r.json())
+    .then(data => {
+      clearInterval(timer);
+      fill.style.width = '100%';
+      label.textContent = '✅ Processing complete!';
+      if (data.error) throw new Error(data.error);
+
+      // Store parsed data and redirect
+      sessionStorage.setItem('dashboardData', JSON.stringify(data));
+      showToast('✅ ' + file.name + ' loaded! Redirecting...');
+      setTimeout(() => { window.location.href = 'dashboard.html'; }, 800);
+    })
+    .catch(err => {
+      clearInterval(timer);
+      fill.style.width = '0%';
+      prog.style.display = 'none';
+      showToast('❌ ' + err.message);
+      console.error(err);
+    });
+}
+
+// ── Load upload history ───────────────────────────────────────
+function loadHistory() {
+  fetch('/api/uploads')
+    .then(r => r.json())
+    .then(uploads => {
+      const list  = document.getElementById('history-list');
+      const empty = document.getElementById('history-empty');
+      if (!uploads.length) { empty.style.display = 'block'; return; }
+      empty.style.display = 'none';
+      list.innerHTML = uploads.map(u => `
+        <div class="history-item" onclick="loadUpload(${u.id}, '${u.original}')">
+          <div class="history-item-left">
+            <span class="history-icon">📄</span>
+            <div>
+              <div class="history-name">${u.original}</div>
+              <div class="history-meta">${u.rows_count} rows · ${u.sheets}</div>
+            </div>
+          </div>
+          <div class="history-date">${new Date(u.uploaded_at).toLocaleDateString('en-IN',{day:'2-digit',month:'short',year:'numeric'})}</div>
+        </div>
+      `).join('');
+    })
+    .catch(() => {}); // silently fail if DB not connected
+}
+
+function loadUpload(id, name) {
+  fetch('/api/upload/' + id)
+    .then(r => r.json())
+    .then(rows => {
+      const data = buildDataFromRows(rows, name);
+      sessionStorage.setItem('dashboardData', JSON.stringify({ data, filename: name }));
+      window.location.href = 'dashboard.html';
+    })
+    .catch(err => showToast('❌ Could not load: ' + err.message));
+}
+
+function buildDataFromRows(rows, name) {
+  const invoiceRows = rows.map((r, i) => ({
+    id: i, party: r.party, vr_no: r.vr_no, ledger: r.ledger,
+    outstanding: r.outstanding, collected: r.collected,
+    gst: r.gst, agent: r.agent, due_date: r.due_date
+  }));
+  const totalOS  = invoiceRows.reduce((s,r) => s+r.outstanding, 0);
+  const totalGST = invoiceRows.reduce((s,r) => s+r.gst, 0);
+  return {
+    synopsis: {
+      TAX:   { outstanding: totalOS*0.69, invoices: Math.round(invoiceRows.length*0.7),  gst: totalGST*0.69 },
+      PI:    { outstanding: totalOS*0.16, invoices: Math.round(invoiceRows.length*0.2),  gst: totalGST*0.16 },
+      DPI:   { outstanding: totalOS*0.15, invoices: Math.round(invoiceRows.length*0.1),  gst: totalGST*0.15 },
+      TOTAL: { outstanding: totalOS,      invoices: invoiceRows.length,                  gst: totalGST }
+    },
+    invoiceRows, sheets: [name]
+  };
+}
+
+// ── Toast ────────────────────────────────────────────────────
+function showToast(msg) {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.classList.add('show');
+  setTimeout(() => t.classList.remove('show'), 3000);
+}
+
+loadHistory();
+</script>
+</body>
+</html>

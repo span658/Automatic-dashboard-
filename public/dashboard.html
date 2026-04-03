@@ -1,0 +1,753 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Silicon Systems — Dashboard</title>
+<link rel="stylesheet" href="style.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<style>
+.dash-wrap {
+  margin: 0 32px 40px;
+}
+.dash-topbar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 24px 0 20px;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+.dash-title    { font-size: 22px; font-weight: 700; }
+.dash-subtitle { font-size: 12px; color: var(--muted); margin-top: 4px; }
+.dash-actions  { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+
+.no-data-state {
+  display: flex; flex-direction: column;
+  align-items: center; justify-content: center;
+  min-height: 60vh; text-align: center;
+  gap: 16px;
+}
+.no-data-state h2 { font-size: 22px; font-weight: 700; }
+.no-data-state p  { color: var(--muted); font-size: 14px; }
+
+#top-performers-list { margin-top: 4px; }
+.perf-item { margin-bottom: 16px; }
+.perf-row  { display: flex; justify-content: space-between; margin-bottom: 5px; }
+.perf-name { font-size: 12px; font-weight: 600; }
+.perf-pct  { font-size: 11px; color: var(--accent3); font-family: 'DM Mono', monospace; }
+
+@media (max-width: 760px) {
+  .dash-wrap { margin: 0 16px 32px; }
+}
+</style>
+</head>
+<body>
+
+<!-- HEADER -->
+<header>
+  <a class="logo" href="index.html">
+    <div class="logo-icon">S</div>
+    <div><div class="logo-text">Silicon <span>Systems</span></div></div>
+  </a>
+  <div class="header-right">
+    <div class="header-date" id="header-date"></div>
+    <a href="index.html" class="header-btn">↑ New Upload</a>
+  </div>
+</header>
+
+<!-- DASHBOARD WRAP -->
+<div class="dash-wrap" id="dash-wrap" style="display:none;">
+
+  <div class="dash-topbar">
+    <div>
+      <div class="dash-title">Outstanding Report</div>
+      <div class="dash-subtitle" id="file-info">—</div>
+    </div>
+    <div class="dash-actions">
+      <a href="index.html" class="btn-primary" style="font-size:12px; padding:8px 18px; text-decoration:none;">
+        ↑ New File
+      </a>
+    </div>
+  </div>
+
+  <!-- TABS -->
+  <div class="tabs">
+    <div class="tab active" onclick="switchTab('gst')">📊 GST Report</div>
+    <div class="tab" onclick="switchTab('invoice')">🧾 Invoice Types</div>
+    <div class="tab" onclick="switchTab('salesperson')">👤 Salesperson Tax</div>
+    <div class="tab" onclick="switchTab('ledger')">📋 Ledger Outstanding</div>
+  </div>
+
+  <!-- TAB 1: GST -->
+  <div class="tab-content active" id="tab-gst">
+    <div class="section-title">GST Pending vs Collected</div>
+    <div class="kpi-grid">
+      <div class="kpi-card" style="--card-color:var(--accent4);">
+        <div class="kpi-icon">⚠️</div>
+        <div class="kpi-label">Total GST Pending</div>
+        <div class="kpi-value red" id="kpi-gst-pending">—</div>
+        <div class="kpi-sub" id="kpi-gst-pending-pct"></div>
+      </div>
+      <div class="kpi-card" style="--card-color:var(--accent3);">
+        <div class="kpi-icon">✅</div>
+        <div class="kpi-label">Total GST Collected</div>
+        <div class="kpi-value green" id="kpi-gst-collected">—</div>
+        <div class="kpi-sub" id="kpi-gst-collected-pct"></div>
+      </div>
+      <div class="kpi-card" style="--card-color:var(--accent);">
+        <div class="kpi-icon">📦</div>
+        <div class="kpi-label">Total Outstanding</div>
+        <div class="kpi-value" id="kpi-outstanding">—</div>
+        <div class="kpi-sub" id="kpi-invoices-count"></div>
+      </div>
+      <div class="kpi-card" style="--card-color:var(--accent2);">
+        <div class="kpi-icon">🏆</div>
+        <div class="kpi-label">Collection Rate</div>
+        <div class="kpi-value" id="kpi-collection-rate">—</div>
+        <div class="kpi-sub">GST recovery</div>
+      </div>
+    </div>
+    <div class="charts-row charts-row-2">
+      <div class="chart-card clickable" onclick="openGSTDrilldown()">
+        <div class="chart-title">GST Pending vs Collected</div>
+        <div class="chart-subtitle">Click to see invoice-level details</div>
+        <div class="chart-wrapper"><canvas id="chart-gst-bar"></canvas></div>
+      </div>
+      <div class="chart-card">
+        <div class="chart-title">GST Distribution by Agent</div>
+        <div class="chart-subtitle">Proportion of GST pending per salesperson</div>
+        <div class="chart-wrapper"><canvas id="chart-gst-pie"></canvas></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- TAB 2: INVOICE TYPES -->
+  <div class="tab-content" id="tab-invoice">
+    <div class="section-title">Invoice Types — TAX · PI · DPI</div>
+    <div class="kpi-grid">
+      <div class="kpi-card" style="--card-color:var(--accent);">
+        <div class="kpi-icon">🔵</div>
+        <div class="kpi-label">TAX Invoices</div>
+        <div class="kpi-value" id="kpi-tax-os">—</div>
+        <div class="kpi-sub" id="kpi-tax-inv"></div>
+      </div>
+      <div class="kpi-card" style="--card-color:var(--accent2);">
+        <div class="kpi-icon">🟡</div>
+        <div class="kpi-label">PI Invoices</div>
+        <div class="kpi-value" id="kpi-pi-os">—</div>
+        <div class="kpi-sub" id="kpi-pi-inv"></div>
+      </div>
+      <div class="kpi-card" style="--card-color:var(--accent3);">
+        <div class="kpi-icon">🟢</div>
+        <div class="kpi-label">Double PI (DPI)</div>
+        <div class="kpi-value" id="kpi-dpi-os">—</div>
+        <div class="kpi-sub" id="kpi-dpi-inv"></div>
+      </div>
+      <div class="kpi-card" style="--card-color:var(--accent4);">
+        <div class="kpi-icon">🔴</div>
+        <div class="kpi-label">Total Outstanding</div>
+        <div class="kpi-value" id="kpi-total-os">—</div>
+        <div class="kpi-sub" id="kpi-total-inv"></div>
+      </div>
+    </div>
+    <div class="charts-row charts-row-2">
+      <!-- LEFT: Clickable bar chart — click a bar to open invoice list -->
+      <div class="chart-card clickable">
+        <div class="chart-title">Outstanding by Invoice Type</div>
+        <div class="chart-subtitle">👆 Click any bar to see invoice list</div>
+        <div class="chart-wrapper"><canvas id="chart-invoice-bar"></canvas></div>
+      </div>
+      <!-- RIGHT: Pie chart — invoice count distribution -->
+      <div class="chart-card">
+        <div class="chart-title">Invoice Count Distribution</div>
+        <div class="chart-subtitle">Number of invoices per type</div>
+        <div class="chart-wrapper"><canvas id="chart-invoice-pie"></canvas></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- TAB 3: SALESPERSON -->
+  <div class="tab-content" id="tab-salesperson">
+    <div class="section-title">Salesperson-wise Tax Report</div>
+    <div class="charts-row charts-row-3">
+      <div class="chart-card clickable" onclick="openSalesDrilldown()">
+        <div class="chart-title">Outstanding per Salesperson</div>
+        <div class="chart-subtitle">Click any bar to drill into individual invoices</div>
+        <div class="chart-wrapper chart-wrapper-lg"><canvas id="chart-sales-bar"></canvas></div>
+      </div>
+      <div class="chart-card">
+        <div class="chart-title">Top Performers</div>
+        <div class="chart-subtitle">By collection rate</div>
+        <div id="top-performers-list"></div>
+      </div>
+    </div>
+    <div class="table-card">
+      <div class="chart-title" style="margin-bottom:16px;">Salesperson Summary Table</div>
+      <table>
+        <thead>
+          <tr>
+            <th>Salesperson</th>
+            <th class="right">Outstanding (₹)</th>
+            <th class="right">GST Pending (₹)</th>
+            <th class="right">Collected (₹)</th>
+            <th class="right">Invoices</th>
+            <th class="right">Collection %</th>
+          </tr>
+        </thead>
+        <tbody id="sales-table-body"></tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- TAB 4: LEDGER -->
+  <div class="tab-content" id="tab-ledger">
+    <div class="section-title">Ledger-wise Outstanding Report</div>
+    <div class="filter-bar">
+      <span class="filter-label">Filter:</span>
+      <input type="text" id="ledger-search" placeholder="Search party or ledger…" oninput="filterLedger()" style="width:220px;">
+      <select id="ledger-agent-filter" onchange="filterLedger()">
+        <option value="">All Agents</option>
+      </select>
+      <select id="ledger-sort" onchange="filterLedger()">
+        <option value="outstanding_desc">Outstanding ↓</option>
+        <option value="outstanding_asc">Outstanding ↑</option>
+        <option value="party">Party Name A–Z</option>
+      </select>
+    </div>
+    <div class="charts-row charts-row-2" style="margin-bottom:20px;">
+      <div class="chart-card clickable" onclick="openLedgerDrilldown()">
+        <div class="chart-title">Top 10 Ledgers by Outstanding</div>
+        <div class="chart-subtitle">Click to see all ledger details</div>
+        <div class="chart-wrapper"><canvas id="chart-ledger-bar"></canvas></div>
+      </div>
+      <div class="chart-card">
+        <div class="chart-title">Top 10 Parties by Outstanding</div>
+        <div class="chart-subtitle">Highest balance parties</div>
+        <div class="chart-wrapper"><canvas id="chart-party-bar"></canvas></div>
+      </div>
+    </div>
+    <div class="table-card">
+      <div class="chart-title" style="margin-bottom:16px;">All Outstanding Entries</div>
+      <table>
+        <thead>
+          <tr>
+            <th>#</th>
+            <th>Party Name</th>
+            <th>Invoice No.</th>
+            <th>Ledger</th>
+            <th>Agent</th>
+            <th class="right">Outstanding (₹)</th>
+            <th class="right">Due Days</th>
+          </tr>
+        </thead>
+        <tbody id="ledger-table-body"></tbody>
+      </table>
+    </div>
+  </div>
+
+</div><!-- end dash-wrap -->
+
+<!-- NO DATA STATE -->
+<div class="no-data-state" id="no-data-state" style="display:none;">
+  <div style="font-size:52px;">📊</div>
+  <h2>No Dashboard Data</h2>
+  <p>Please upload a file first to see the dashboard.</p>
+  <a href="index.html" class="btn-primary">↑ Go to Upload</a>
+</div>
+
+<!-- MODAL -->
+<div id="modal-overlay" onclick="closeModal(event)">
+  <div class="modal" onclick="event.stopPropagation()">
+    <div class="modal-header">
+      <div>
+        <div class="modal-title" id="modal-title">Details</div>
+        <div class="modal-sub" id="modal-sub"></div>
+      </div>
+      <button class="close-btn" onclick="closeModal()">×</button>
+    </div>
+    <div id="modal-body"></div>
+  </div>
+</div>
+
+<!-- Toast -->
+<div id="toast"></div>
+
+<script>
+// =============================================================
+//  DASHBOARD — All logic inline
+// =============================================================
+
+let D = { synopsis: null, invoiceRows: [], agentSummary: [], ledgerSummary: [], partySummary: [] };
+let charts = {};
+
+// ── Formatters ────────────────────────────────────────────────
+const fmt = v => {
+  if (v == null || isNaN(v)) return '—';
+  if (v >= 1e7) return '₹' + (v/1e7).toFixed(2) + 'Cr';
+  if (v >= 1e5) return '₹' + (v/1e5).toFixed(2) + 'L';
+  return '₹' + Math.round(v).toLocaleString('en-IN');
+};
+const pct = (a,b) => b ? ((a/b)*100).toFixed(1)+'%' : '0%';
+
+const COLORS = ['#00d4ff','#f59e0b','#10b981','#f43f5e','#8b5cf6','#ec4899','#06b6d4','#84cc16','#fb923c','#a78bfa'];
+
+// ── Chart base config ─────────────────────────────────────────
+const CD = {
+  responsive: true, maintainAspectRatio: false,
+  plugins: {
+    legend: { labels: { color:'#94a3b8', font:{ family:'DM Mono', size:11 } } },
+    tooltip: { backgroundColor:'#1a2235', borderColor:'#1e2d45', borderWidth:1,
+               titleFont:{ family:'Sora' }, bodyFont:{ family:'DM Mono' } }
+  },
+  scales: {
+    x: { ticks:{ color:'#64748b', font:{ family:'DM Mono', size:10 } }, grid:{ color:'#1e2d45' } },
+    y: { ticks:{ color:'#64748b', font:{ family:'DM Mono', size:10 }, callback: v => fmt(v) }, grid:{ color:'#1e2d45' } }
+  }
+};
+function destroyChart(k) { if (charts[k]) { charts[k].destroy(); delete charts[k]; } }
+
+// ── Header date ───────────────────────────────────────────────
+document.getElementById('header-date').textContent =
+  'As on ' + new Date().toLocaleDateString('en-IN', { day:'2-digit', month:'short', year:'numeric' });
+
+// ── Load sessionStorage on page load ─────────────────────────
+window.addEventListener('DOMContentLoaded', () => {
+  const raw = sessionStorage.getItem('dashboardData');
+  if (!raw) { document.getElementById('no-data-state').style.display = 'flex'; return; }
+  let payload;
+  try { payload = JSON.parse(raw); }
+  catch(e) { document.getElementById('no-data-state').style.display = 'flex'; return; }
+
+  const data = payload.data || payload;
+  document.getElementById('file-info').textContent =
+    '📄 ' + (payload.filename || 'Uploaded file') +
+    '  ·  ' + (data.invoiceRows?.length || 0) + ' rows';
+
+  buildFromData(data);
+  document.getElementById('dash-wrap').style.display = 'block';
+});
+
+// ── Build everything ──────────────────────────────────────────
+function buildFromData(data) {
+  const { synopsis, invoiceRows } = data;
+
+  // Agent summary
+  const agentMap = {};
+  invoiceRows.forEach(r => {
+    if (!agentMap[r.agent]) agentMap[r.agent] = { outstanding:0, gst:0, collected:0, invoices:0 };
+    agentMap[r.agent].outstanding += r.outstanding;
+    agentMap[r.agent].gst        += r.gst;
+    agentMap[r.agent].collected  += r.collected;
+    agentMap[r.agent].invoices++;
+  });
+  const agentSummary = Object.entries(agentMap).map(([name,d]) => ({ name,...d }))
+    .sort((a,b) => b.outstanding - a.outstanding);
+
+  // Ledger summary
+  const ledgerMap = {};
+  invoiceRows.forEach(r => {
+    if (!ledgerMap[r.ledger]) ledgerMap[r.ledger] = { outstanding:0, invoices:0 };
+    ledgerMap[r.ledger].outstanding += r.outstanding;
+    ledgerMap[r.ledger].invoices++;
+  });
+  const ledgerSummary = Object.entries(ledgerMap).map(([name,d]) => ({ name,...d }))
+    .sort((a,b) => b.outstanding - a.outstanding);
+
+  // Party summary
+  const partyMap = {};
+  invoiceRows.forEach(r => {
+    if (!partyMap[r.party]) partyMap[r.party] = { outstanding:0, invoices:0 };
+    partyMap[r.party].outstanding += r.outstanding;
+    partyMap[r.party].invoices++;
+  });
+  const partySummary = Object.entries(partyMap).map(([name,d]) => ({ name,...d }))
+    .filter(p => !p.name.toLowerCase().includes('total'))
+    .sort((a,b) => b.outstanding - a.outstanding);
+
+  D = { synopsis, invoiceRows, agentSummary, ledgerSummary, partySummary };
+
+  buildGSTTab();
+  buildInvoiceTab();
+  buildSalesTab();
+  buildLedgerTab();
+}
+
+// ── TAB 1: GST ────────────────────────────────────────────────
+function buildGSTTab() {
+  const { invoiceRows, agentSummary } = D;
+  const totalGST = invoiceRows.reduce((s,r) => s+r.gst, 0);
+  const totalCol = invoiceRows.reduce((s,r) => s+r.collected, 0);
+  const totalOS  = invoiceRows.reduce((s,r) => s+r.outstanding, 0);
+  const rate     = (totalGST+totalCol) > 0 ? (totalCol/(totalGST+totalCol)*100).toFixed(1) : 0;
+
+  setText('kpi-gst-pending',       fmt(totalGST));
+  setText('kpi-gst-pending-pct',   pct(totalGST, totalGST+totalCol) + ' of total GST');
+  setText('kpi-gst-collected',     fmt(totalCol));
+  setText('kpi-gst-collected-pct', pct(totalCol, totalGST+totalCol) + ' of total GST');
+  setText('kpi-outstanding',       fmt(totalOS));
+  setText('kpi-invoices-count',    invoiceRows.length + ' invoices');
+  setText('kpi-collection-rate',   rate + '%');
+
+  destroyChart('gst-bar');
+  charts['gst-bar'] = new Chart(document.getElementById('chart-gst-bar'), {
+    type: 'bar',
+    data: {
+      labels: agentSummary.map(a => short(a.name)),
+      datasets: [
+        { label:'GST Pending', data: agentSummary.map(a => Math.round(a.gst)),       backgroundColor:'rgba(244,63,94,0.75)',  borderRadius:4 },
+        { label:'Collected',   data: agentSummary.map(a => Math.round(a.collected)),  backgroundColor:'rgba(16,185,129,0.75)', borderRadius:4 }
+      ]
+    },
+    options: CD
+  });
+
+  destroyChart('gst-pie');
+  charts['gst-pie'] = new Chart(document.getElementById('chart-gst-pie'), {
+    type: 'doughnut',
+    data: {
+      labels: agentSummary.map(a => short(a.name)),
+      datasets: [{ data: agentSummary.map(a => Math.round(a.gst)), backgroundColor: COLORS, borderWidth:0, hoverOffset:6 }]
+    },
+    options: { ...CD, scales:{}, cutout:'60%' }
+  });
+}
+
+// ── TAB 2: INVOICE TYPES ──────────────────────────────────────
+function buildInvoiceTab() {
+  const { synopsis } = D;
+
+  setText('kpi-tax-os',    fmt(synopsis.TAX.outstanding));
+  setText('kpi-tax-inv',   synopsis.TAX.invoices + ' invoices · GST ' + fmt(synopsis.TAX.gst));
+  setText('kpi-pi-os',     fmt(synopsis.PI.outstanding));
+  setText('kpi-pi-inv',    synopsis.PI.invoices + ' invoices · GST ' + fmt(synopsis.PI.gst));
+  setText('kpi-dpi-os',    fmt(synopsis.DPI.outstanding));
+  setText('kpi-dpi-inv',   synopsis.DPI.invoices + ' invoices · GST ' + fmt(synopsis.DPI.gst));
+  setText('kpi-total-os',  fmt(synopsis.TOTAL.outstanding));
+  setText('kpi-total-inv', synopsis.TOTAL.invoices + ' total invoices');
+
+  // IMPORTANT: keys array must be defined here
+  const keys   = ['TAX', 'PI', 'DPI'];
+  const labels = ['TAX Invoice', 'Proforma (PI)', 'Double PI (DPI)'];
+  const osVals = [synopsis.TAX.outstanding, synopsis.PI.outstanding, synopsis.DPI.outstanding];
+  const ivVals = [synopsis.TAX.invoices,    synopsis.PI.invoices,    synopsis.DPI.invoices];
+  const colors = ['rgba(0,212,255,0.75)', 'rgba(245,158,11,0.75)', 'rgba(16,185,129,0.75)'];
+
+  // LEFT bar chart — clicking a bar opens invoice list modal
+  destroyChart('invoice-bar');
+  charts['invoice-bar'] = new Chart(document.getElementById('chart-invoice-bar'), {
+    type: 'bar',
+    data: {
+      labels,
+      datasets: [{ label:'Outstanding (₹)', data:osVals, backgroundColor:colors, borderRadius:6 }]
+    },
+    options: {
+      ...CD,
+      onClick: (e, els) => {
+        if (els.length > 0) {
+          openInvoiceTypeDrilldown(keys[els[0].index]);
+        }
+      }
+    }
+  });
+
+  // RIGHT pie chart — invoice count
+  destroyChart('invoice-pie');
+  charts['invoice-pie'] = new Chart(document.getElementById('chart-invoice-pie'), {
+    type: 'pie',
+    data: {
+      labels,
+      datasets: [{ data:ivVals, backgroundColor:colors, borderWidth:0, hoverOffset:6 }]
+    },
+    options: { ...CD, scales:{} }
+  });
+}
+
+// ── TAB 3: SALESPERSON ────────────────────────────────────────
+function buildSalesTab() {
+  const { agentSummary } = D;
+
+  destroyChart('sales-bar');
+  charts['sales-bar'] = new Chart(document.getElementById('chart-sales-bar'), {
+    type: 'bar',
+    data: {
+      labels: agentSummary.map(a => short(a.name)),
+      datasets: [
+        { label:'Outstanding (₹)', data: agentSummary.map(a => Math.round(a.outstanding)), backgroundColor:'rgba(0,212,255,0.7)',  borderRadius:5 },
+        { label:'GST Pending (₹)', data: agentSummary.map(a => Math.round(a.gst)),         backgroundColor:'rgba(245,158,11,0.7)', borderRadius:5 }
+      ]
+    },
+    options: {
+      ...CD,
+      onClick: (e, els) => { if (els.length) openSalesDrilldown(agentSummary[els[0].index].name); }
+    }
+  });
+
+  const sorted = [...agentSummary].sort((a,b) => {
+    const ra = a.collected / (a.gst + a.collected + 0.01);
+    const rb = b.collected / (b.gst + b.collected + 0.01);
+    return rb - ra;
+  });
+  document.getElementById('top-performers-list').innerHTML = sorted.slice(0,6).map((a,i) => {
+    const r = ((a.collected / (a.gst + a.collected + 0.01))*100).toFixed(0);
+    return `<div class="perf-item">
+      <div class="perf-row">
+        <span class="perf-name">${short(a.name)}</span>
+        <span class="perf-pct">${r}%</span>
+      </div>
+      <div class="progress-bar">
+        <div class="progress-fill" style="width:${r}%;background:${i<3?'var(--accent3)':'var(--accent)'};"></div>
+      </div>
+    </div>`;
+  }).join('');
+
+  document.getElementById('sales-table-body').innerHTML = agentSummary.map(a => {
+    const r = a.gst+a.collected > 0 ? ((a.collected/(a.gst+a.collected))*100).toFixed(1) : 0;
+    return `<tr onclick="openSalesDrilldown('${a.name.replace(/'/g,"\\'")}');" style="cursor:pointer;">
+      <td><strong>${a.name}</strong></td>
+      <td class="right mono">${fmt(a.outstanding)}</td>
+      <td class="right mono red">${fmt(a.gst)}</td>
+      <td class="right mono green">${fmt(a.collected)}</td>
+      <td class="right mono">${a.invoices}</td>
+      <td class="right"><span class="badge ${Number(r)>50?'badge-dpi':'badge-tax'}">${r}%</span></td>
+    </tr>`;
+  }).join('');
+}
+
+// ── TAB 4: LEDGER ─────────────────────────────────────────────
+function buildLedgerTab() {
+  const { ledgerSummary, partySummary, agentSummary } = D;
+
+  const top10l = ledgerSummary.slice(0,10);
+  destroyChart('ledger-bar');
+  charts['ledger-bar'] = new Chart(document.getElementById('chart-ledger-bar'), {
+    type: 'bar',
+    data: {
+      labels: top10l.map(l => l.name.length>20 ? l.name.slice(0,18)+'…' : l.name),
+      datasets: [{ label:'Outstanding (₹)', data: top10l.map(l => Math.round(l.outstanding)), backgroundColor:COLORS, borderRadius:4 }]
+    },
+    options: { ...CD, indexAxis:'y', scales:{
+      y: { ticks:{ color:'#64748b', font:{ size:10 } }, grid:{ color:'#1e2d45' } },
+      x: { ticks:{ color:'#64748b', font:{ family:'DM Mono', size:10 }, callback: v=>fmt(v) }, grid:{ color:'#1e2d45' } }
+    }}
+  });
+
+  const top10p = partySummary.slice(0,10);
+  destroyChart('party-bar');
+  charts['party-bar'] = new Chart(document.getElementById('chart-party-bar'), {
+    type: 'bar',
+    data: {
+      labels: top10p.map(p => p.name.length>22 ? p.name.slice(0,20)+'…' : p.name),
+      datasets: [{ label:'Outstanding (₹)', data: top10p.map(p => Math.round(p.outstanding)), backgroundColor:'rgba(139,92,246,0.7)', borderRadius:4 }]
+    },
+    options: { ...CD, indexAxis:'y', scales:{
+      y: { ticks:{ color:'#64748b', font:{ size:10 } }, grid:{ color:'#1e2d45' } },
+      x: { ticks:{ color:'#64748b', font:{ family:'DM Mono', size:10 }, callback: v=>fmt(v) }, grid:{ color:'#1e2d45' } }
+    }}
+  });
+
+  const sel = document.getElementById('ledger-agent-filter');
+  sel.innerHTML = '<option value="">All Agents</option>' +
+    agentSummary.map(a => `<option value="${a.name}">${a.name}</option>`).join('');
+
+  filterLedger();
+}
+
+function filterLedger() {
+  const search = document.getElementById('ledger-search').value.toLowerCase();
+  const agent  = document.getElementById('ledger-agent-filter').value;
+  const sort   = document.getElementById('ledger-sort').value;
+  let rows = [...D.invoiceRows];
+  if (search) rows = rows.filter(r => r.party.toLowerCase().includes(search) || r.ledger.toLowerCase().includes(search));
+  if (agent)  rows = rows.filter(r => r.agent === agent);
+  if (sort === 'outstanding_desc') rows.sort((a,b) => b.outstanding - a.outstanding);
+  else if (sort === 'outstanding_asc') rows.sort((a,b) => a.outstanding - b.outstanding);
+  else rows.sort((a,b) => a.party.localeCompare(b.party));
+
+  document.getElementById('ledger-table-body').innerHTML = rows.slice(0,200).map((r,i) => `
+    <tr>
+      <td class="mono muted">${i+1}</td>
+      <td><strong>${r.party}</strong></td>
+      <td class="mono" style="font-size:11px;">${r.vr_no}</td>
+      <td style="font-size:12px;">${r.ledger}</td>
+      <td style="font-size:12px;">${r.agent}</td>
+      <td class="right mono">${fmt(r.outstanding)}</td>
+      <td class="right mono ${Number(r.due_date)>60?'red':''}">
+        ${r.due_date !== '—' && !isNaN(Number(r.due_date)) ? Math.round(Number(r.due_date))+'d' : r.due_date}
+      </td>
+    </tr>
+  `).join('');
+}
+
+// ── MODAL ─────────────────────────────────────────────────────
+function openModal(title, sub, html) {
+  document.getElementById('modal-title').textContent = title;
+  document.getElementById('modal-sub').textContent   = sub;
+  document.getElementById('modal-body').innerHTML    = html;
+  document.getElementById('modal-overlay').classList.add('open');
+}
+function closeModal(e) {
+  if (!e || e.target === document.getElementById('modal-overlay'))
+    document.getElementById('modal-overlay').classList.remove('open');
+}
+
+// ── DRILL-DOWN: GST ───────────────────────────────────────────
+function openGSTDrilldown() {
+  const rows = [...D.invoiceRows].sort((a,b) => b.gst - a.gst).slice(0,50);
+  openModal('GST Invoice-Level Details', 'Top 50 entries by GST amount',
+    `<table><thead><tr>
+       <th>Party</th><th>Invoice</th><th>Agent</th>
+       <th class="right">Outstanding</th><th class="right">GST</th><th class="right">Collected</th>
+     </tr></thead>
+     <tbody>${rows.map(r => `<tr>
+       <td>${r.party}</td>
+       <td class="mono" style="font-size:11px">${r.vr_no}</td>
+       <td>${r.agent}</td>
+       <td class="right mono">${fmt(r.outstanding)}</td>
+       <td class="right mono red">${fmt(r.gst)}</td>
+       <td class="right mono green">${fmt(r.collected)}</td>
+     </tr>`).join('')}</tbody></table>`
+  );
+}
+
+// ── DRILL-DOWN: Invoice type bar click ────────────────────────
+function openInvoiceTypeDrilldown(typeKey) {
+  const typeLabels = { TAX:'TAX Invoice', PI:'Proforma (PI)', DPI:'Double PI (DPI)' };
+
+  // Try to filter by invoice number prefix
+  let invoices = D.invoiceRows.filter(r => {
+    const v = (r.vr_no || '').toUpperCase();
+    if (typeKey === 'TAX') return v.includes('TAX') || v.includes('SS/') || (!v.includes('PI') && !v.includes('DPI'));
+    if (typeKey === 'DPI') return v.includes('DPI');
+    if (typeKey === 'PI')  return v.includes('PI') && !v.includes('DPI') && !v.includes('TAX');
+    return false;
+  });
+
+  // Fallback if 0 results: use ratio-based slice
+  if (invoices.length === 0) {
+    const total  = D.synopsis.TOTAL.outstanding || 1;
+    const ratio  = D.synopsis[typeKey].outstanding / total;
+    const sorted = [...D.invoiceRows].sort((a,b) => b.outstanding - a.outstanding);
+    const count  = Math.round(D.synopsis[typeKey].invoices) || Math.round(sorted.length * ratio);
+    const offset = typeKey === 'TAX' ? 0
+                 : typeKey === 'PI'  ? Math.round(D.synopsis.TAX.invoices)
+                 : Math.round(D.synopsis.TAX.invoices + D.synopsis.PI.invoices);
+    invoices = sorted.slice(offset, offset + count);
+  }
+
+  const totalOS  = invoices.reduce((s,r) => s+r.outstanding, 0);
+  const totalGST = invoices.reduce((s,r) => s+r.gst, 0);
+  const totalCol = invoices.reduce((s,r) => s+r.collected, 0);
+
+  openModal(
+    '📋 ' + typeLabels[typeKey] + ' — Invoice List',
+    invoices.length + ' invoices',
+    `<div style="display:flex;gap:16px;margin-bottom:20px;flex-wrap:wrap;">
+       <div class="kpi-card" style="flex:1;min-width:150px;--card-color:var(--accent4)">
+         <div class="kpi-label">GST Pending</div>
+         <div class="kpi-value red">${fmt(totalGST)}</div>
+       </div>
+       <div class="kpi-card" style="flex:1;min-width:150px;--card-color:var(--accent3)">
+         <div class="kpi-label">Collected</div>
+         <div class="kpi-value green">${fmt(totalCol)}</div>
+       </div>
+       <div class="kpi-card" style="flex:1;min-width:150px;--card-color:var(--accent)">
+         <div class="kpi-label">Outstanding</div>
+         <div class="kpi-value">${fmt(totalOS)}</div>
+       </div>
+     </div>
+     <table>
+       <thead><tr>
+         <th>Party</th><th>Invoice No.</th><th>Ledger</th><th>Agent</th>
+         <th class="right">Outstanding</th><th class="right">GST</th>
+       </tr></thead>
+       <tbody>${invoices.sort((a,b) => b.outstanding-a.outstanding).map(r => `
+         <tr>
+           <td><strong>${r.party}</strong></td>
+           <td class="mono" style="font-size:11px">${r.vr_no}</td>
+           <td style="font-size:12px">${r.ledger}</td>
+           <td style="font-size:12px">${r.agent}</td>
+           <td class="right mono">${fmt(r.outstanding)}</td>
+           <td class="right mono red">${fmt(r.gst)}</td>
+         </tr>`).join('')}
+       </tbody>
+     </table>`
+  );
+}
+
+// ── DRILL-DOWN: Salesperson ───────────────────────────────────
+function openSalesDrilldown(agentName) {
+  const agent    = agentName || D.agentSummary[0]?.name;
+  const invoices = D.invoiceRows.filter(r => r.agent === agent);
+  openModal('📋 ' + agent, invoices.length + ' invoices',
+    `<div style="display:flex;gap:16px;margin-bottom:20px;flex-wrap:wrap;">
+       <div class="kpi-card" style="flex:1;min-width:150px;--card-color:var(--accent4)">
+         <div class="kpi-label">GST Pending</div>
+         <div class="kpi-value red">${fmt(invoices.reduce((s,r)=>s+r.gst,0))}</div>
+       </div>
+       <div class="kpi-card" style="flex:1;min-width:150px;--card-color:var(--accent3)">
+         <div class="kpi-label">Collected</div>
+         <div class="kpi-value green">${fmt(invoices.reduce((s,r)=>s+r.collected,0))}</div>
+       </div>
+       <div class="kpi-card" style="flex:1;min-width:150px;--card-color:var(--accent)">
+         <div class="kpi-label">Outstanding</div>
+         <div class="kpi-value">${fmt(invoices.reduce((s,r)=>s+r.outstanding,0))}</div>
+       </div>
+     </div>
+     <table><thead><tr>
+       <th>Party</th><th>Invoice</th><th>Ledger</th>
+       <th class="right">Outstanding</th><th class="right">GST</th>
+     </tr></thead>
+     <tbody>${invoices.sort((a,b)=>b.outstanding-a.outstanding).map(r=>`<tr>
+       <td>${r.party}</td>
+       <td class="mono" style="font-size:11px">${r.vr_no}</td>
+       <td style="font-size:12px">${r.ledger}</td>
+       <td class="right mono">${fmt(r.outstanding)}</td>
+       <td class="right mono red">${fmt(r.gst)}</td>
+     </tr>`).join('')}</tbody></table>`
+  );
+}
+
+// ── DRILL-DOWN: Ledger ────────────────────────────────────────
+function openLedgerDrilldown() {
+  const { ledgerSummary } = D;
+  openModal('All Ledgers — Outstanding', ledgerSummary.length + ' unique ledgers',
+    `<table><thead><tr>
+       <th>#</th><th>Ledger / Service</th>
+       <th class="right">Outstanding</th><th class="right">Invoices</th>
+     </tr></thead>
+     <tbody>${ledgerSummary.map((l,i)=>`<tr>
+       <td class="mono muted">${i+1}</td>
+       <td>${l.name}</td>
+       <td class="right mono">${fmt(l.outstanding)}</td>
+       <td class="right mono">${l.invoices}</td>
+     </tr>`).join('')}</tbody></table>`
+  );
+}
+
+// ── TAB SWITCHER ──────────────────────────────────────────────
+function switchTab(name) {
+  document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+  document.querySelectorAll('.tab-content').forEach(t => t.classList.remove('active'));
+  const idx = ['gst','invoice','salesperson','ledger'].indexOf(name);
+  document.querySelectorAll('.tab')[idx].classList.add('active');
+  document.getElementById('tab-' + name).classList.add('active');
+  setTimeout(() => Object.values(charts).forEach(c => c.resize()), 50);
+}
+
+// ── UTILS ─────────────────────────────────────────────────────
+function setText(id, val) {
+  const el = document.getElementById(id);
+  if (el) el.textContent = val;
+}
+function short(name) {
+  return (name || '').replace(' Sales','').replace('-Sales','').replace('  ',' ');
+}
+function showToast(msg) {
+  const t = document.getElementById('toast');
+  t.textContent = msg; t.classList.add('show');
+  setTimeout(() => t.classList.remove('show'), 3000);
+}
+</script>
+</body>
+</html>
